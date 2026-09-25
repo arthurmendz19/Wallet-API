@@ -6,7 +6,7 @@ This project is part of my journey learning backend development (Node.js, TypeSc
 
 ## Status
 
-🚧 In progress — MVP phase.
+In progress — MVP phase.
 
 ## Roadmap
 

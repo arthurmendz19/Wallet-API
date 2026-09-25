@@ -4,6 +4,7 @@
   "description": "A REST API that simulates an investment wallet. Users register buy/sell operations for assets, and the system calculates their current position, total invested, and profit/loss.",
   "main": "index.js",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts"
   },
   "keywords": [],
