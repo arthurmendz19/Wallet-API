@@ -1,13 +1,8 @@
 import Express from "express";
+import { assets } from "../data/assets.js"
+import type { Asset } from "../data/assets.js"
 
 const router = Express.Router()
-type Asset = { 
-    id: number;
-    ticker: string;
-    name: string;
-    currentPrice: number;
-}
-const assets: Asset[] = []
 
 router.get("/assets", (req,res) => {
     res.json(assets)
@@ -37,7 +32,7 @@ router.post("/assets", ((req, res) =>{
         }
         const newAsset: Asset = { 
             id: nextId, 
-            ticker: ticker,
+            ticker: ticker.toUpperCase(),
             name: name, 
             currentPrice: currentPrice
         }
