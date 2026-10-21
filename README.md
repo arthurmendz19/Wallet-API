@@ -10,7 +10,7 @@ In progress — MVP phase.
 
 ## Roadmap
 
-- [ ] **v1 — MVP**: core CRUD for assets and operations, in-memory data, fixed asset prices
+- [x] **v1 — MVP**: core CRUD for assets and operations, in-memory data, fixed asset prices
 - [ ] **v2 — Persistence**: migrate from in-memory storage to a real database (SQL)
 - [ ] **v3 — Auth**: multiple users, each with their own isolated wallet (JWT authentication)
 - [ ] **v4 — Real prices**: replace fixed prices with real quotes from an external API (currency/crypto)
