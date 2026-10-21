@@ -57,7 +57,7 @@ A single buy or sell transaction registered by the user.
 - Node.js
 - TypeScript
 - Express
-- (Phase v2) SQL database
+- SQL database
 
 ## Running locally
 
