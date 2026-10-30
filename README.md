@@ -1,69 +1,230 @@
 # Wallet API
 
-A REST API that simulates an investment wallet. Users register buy/sell operations for assets, and the system calculates their current position, total invested, and profit/loss.
+A REST API that simulates an investment wallet. Users register buy/sell operations for assets, and the API validates every operation (for example, you can't sell more than you hold). The wallet summary (current position, total invested, profit/loss) is the next feature.
 
-This project is part of my journey learning backend development (Node.js, TypeScript, Express), built as a portfolio piece — not a course project.
+This project is part of my journey learning backend development (Node.js, TypeScript, Express, MySQL), built as a portfolio piece — not a course project.
 
 ## Status
 
-In progress — MVP phase.
+In progress. Persistence with MySQL (v2) is done; the wallet summary endpoint is next.
 
 ## Roadmap
 
-- [x] **v1 — MVP**: core CRUD for assets and operations, in-memory data, fixed asset prices
-- [ ] **v2 — Persistence**: migrate from in-memory storage to a real database (SQL)
+- [x] **v1 — MVP**: core endpoints for assets and operations, in-memory data, fixed asset prices
+- [x] **v2 — Persistence**: migrate from in-memory storage to MySQL
 - [ ] **v3 — Auth**: multiple users, each with their own isolated wallet (JWT authentication)
 - [ ] **v4 — Real prices**: replace fixed prices with real quotes from an external API (currency/crypto)
 
-## Entities
+### Next up
 
-### Asset
-Represents something that can be traded (e.g. a stock ticker or a cryptocurrency).
-
-| Field | Type | Description |
-|---|---|---|
-| id | number | Unique identifier |
-| ticker | string | Short code (e.g. "PETR4", "BTC") |
-| name | string | Full name (e.g. "Petrobras") |
-| currentPrice | number | Current price (fixed for now) |
-
-### Operation
-A single buy or sell transaction registered by the user.
-
-| Field | Type | Description |
-|---|---|---|
-| id | number | Unique identifier |
-| assetId | number | Reference to the traded asset |
-| type | "buy" \| "sell" | Operation type |
-| quantity | number | Amount traded |
-| unitPrice | number | Price per unit at the time of the operation |
-| date | string | Date of the operation |
-
-## Planned Routes
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/assets` | List all assets |
-| POST | `/assets` | Create a new asset |
-| GET | `/assets/:id` | Get a single asset |
-| GET | `/operations` | List all operations |
-| POST | `/operations` | Register a new operation |
-| GET | `/operations/:id` | Get a single operation |
-| DELETE | `/operations/:id` | Remove an operation |
-| GET | `/wallet` | Calculate current position: total invested, quantity held per asset, and profit/loss |
+- [ ] `GET /wallet`: quantity held per asset, total invested, and profit/loss
+- [ ] `GET /assets/:id` and `GET /operations/:id`
+- [ ] `DELETE /operations/:id`
 
 ## Tech Stack
 
 - Node.js
 - TypeScript
-- Express
-- SQL database
+- Express 5
+- MySQL (via `mysql2`)
+- helmet and dotenv
+- tsx (runs TypeScript directly)
 
-## Running locally
+## Getting started
+
+### Prerequisites
+
+- Node.js 18 or newer
+- A running MySQL server (developed on MySQL Community Server)
+
+### 1. Install dependencies
 
 ```bash
+git clone https://github.com/arthurmendz19/Wallet-API.git
+cd Wallet-API
 npm install
-npm start
 ```
 
-Server runs on `http://localhost:3333`.
+### 2. Create the database
+
+Run this in MySQL Workbench or the `mysql` client:
+
+```sql
+CREATE DATABASE wallet_api;
+USE wallet_api;
+
+CREATE TABLE assets (
+    id INT NOT NULL AUTO_INCREMENT,
+    ticker VARCHAR(10) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    current_price DECIMAL(15,2) NOT NULL,
+    price_updated_at DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY ticker (ticker)
+);
+
+CREATE TABLE operations (
+    id INT NOT NULL AUTO_INCREMENT,
+    asset_id INT NOT NULL,
+    type ENUM('buy', 'sell') NOT NULL,
+    quantity DECIMAL(15,8) NOT NULL,
+    unit_price DECIMAL(15,2) NOT NULL,
+    date DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (asset_id) REFERENCES assets(id)
+);
+```
+
+`quantity` has 8 decimal places so fractional amounts (like `0.23` BTC) are stored without rounding errors.
+
+### 3. Configure environment variables
+
+Copy the example file and fill in your own values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description |
+|---|---|
+| `DB_HOST` | MySQL host (usually `localhost`) |
+| `DB_USER` | MySQL user |
+| `DB_PASSWORD` | MySQL password |
+| `DB_NAME` | Database name (`wallet_api`) |
+
+The server refuses to start if any of these is missing.
+
+### 4. Run
+
+```bash
+npm run dev    # restarts on file changes
+npm start      # single run
+```
+
+The server runs on `http://localhost:3333`.
+
+## API
+
+### Implemented endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/assets` | List all assets |
+| POST | `/assets` | Create a new asset |
+| GET | `/operations` | List all operations (response shape: `{ "operations": [...] }`) |
+| POST | `/operations` | Register a buy or sell operation |
+
+### POST `/assets`
+
+Request body:
+
+```json
+{ "ticker": "btc", "name": "Bitcoin", "currentPrice": 86428 }
+```
+
+Rules: `ticker` is trimmed, uppercased, and must have 3 to 5 characters; `name` must not be empty; `currentPrice` must be a positive number.
+
+Response `201`:
+
+```json
+{
+  "id": 1,
+  "ticker": "BTC",
+  "name": "Bitcoin",
+  "currentPrice": 86428
+}
+```
+
+`GET /assets` also returns `priceUpdatedAt` for each asset.
+
+| Status | When |
+|---|---|
+| 400 | Invalid ticker, name, or price |
+| 409 | An asset with that ticker already exists |
+
+### POST `/operations`
+
+Request body:
+
+```json
+{ "assetId": 1, "type": "buy", "quantity": 0.23 }
+```
+
+The unit price is not sent by the client: the API uses the asset's current price at the time of the operation. `type` must be `"buy"` or `"sell"`, `assetId` must be a positive integer, and `quantity` must be at least `0.00001`.
+
+Response `201`:
+
+```json
+{
+  "id": 1,
+  "assetId": 1,
+  "type": "buy",
+  "quantity": 0.23,
+  "unitPrice": 86428,
+  "date": "2026-10-29T20:05:00.000Z"
+}
+```
+
+| Status | When |
+|---|---|
+| 400 | Invalid operation data |
+| 404 | The asset does not exist |
+| 409 | Sell quantity is greater than the quantity currently held |
+
+The balance for an asset is the sum of its buys minus the sum of its sells, calculated in SQL.
+
+### Other errors
+
+| Status | When |
+|---|---|
+| 404 | Unknown route (`{ "ERROR": "Not Found Request" }`) |
+| 500 | Unexpected error (handled by a central error handler) |
+
+## Data model
+
+### Asset
+
+Represents something that can be traded (e.g. a stock ticker or a cryptocurrency).
+
+| Field | Type | Description |
+|---|---|---|
+| id | number | Unique identifier, generated by the database |
+| ticker | string | Short code (e.g. "PETR4", "BTC"), unique |
+| name | string | Full name (e.g. "Petrobras") |
+| currentPrice | number | Current price (set manually for now) |
+| priceUpdatedAt | date | When the price was last set |
+
+### Operation
+
+A single buy or sell transaction.
+
+| Field | Type | Description |
+|---|---|---|
+| id | number | Unique identifier, generated by the database |
+| assetId | number | Reference to the traded asset |
+| type | "buy" \| "sell" | Operation type |
+| quantity | number | Amount traded (supports fractions) |
+| unitPrice | number | Price per unit at the time of the operation |
+| date | date | When the operation was registered |
+
+## Project structure
+
+```
+src/
+  server.ts            # app setup (dotenv, helmet, JSON parsing, routes)
+  data/
+    database.ts        # MySQL connection, reads the .env variables
+  routes/
+    index.ts           # mounts the routers, 404 and error handlers
+    assets.ts          # /assets endpoints
+    operations.ts      # /operations endpoints
+    errorhandler.ts    # not-found and error handler middlewares
+```
+
+## Known limitations
+
+- **Race condition on sells:** the balance check and the insert are separate queries, so two simultaneous sells could both pass the check. The fix is a transaction with `SELECT ... FOR UPDATE`.
+- **Single database connection:** the app uses one connection instead of a connection pool.
+- **Prices are set manually** until real quotes are integrated (v4).
+- **No authentication yet**, so there is a single shared wallet (v3).
